@@ -4,49 +4,12 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import Dataset, DataLoader
+from transformers import AutoTokenizer, AutoModel
 from tqdm import tqdm
 from sklearn.metrics import classification_report
 import nltk
 import matplotlib.pyplot as plt
 import pandas as pd
-
-
-class GPTDataset(Dataset):
-    def __init__(self, raw_text, seq_len):
-        super(GPTDataset, self).__init__()
-        self.tokens = nltk.word_tokenize(raw_text.lower())
-
-        self.word2idx = self._build_word_2_index()
-        self.idx2word = {v: k for k, v in self.word2idx.items()}
-
-        self.seq_len = seq_len
-        self.X, self.y = self._build_sequences()
-
-    def _build_word_2_index(self):
-        word_2_index = {"<PAD>": 0, "<UNK>": 1}
-        for token in self.tokens:
-            word_2_index[token] = word_2_index.get(token, len(word_2_index))
-
-        return word_2_index
-
-    def _build_sequences(self):
-        X, y = [], []
-        for i in range(len(self.tokens) - self.seq_len):
-            seq = self.tokens[i:i + self.seq_len + 1]
-
-            x_tokens = seq[:-1]
-            y_tokens = seq[1:]
-
-            X.append([self.word2idx[t] for t in x_tokens])
-            y.append([self.word2idx[t] for t in y_tokens])
-
-        return torch.tensor(X), torch.tensor(y)
-
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
-
-    def __len__(self):
-        return len(self.X)
 
 
 class PositionalEncoding(nn.Module):
@@ -71,11 +34,11 @@ class MultiHeadAttention(nn.Module):
         self.dk = dk
         self.dv = dv
 
-        self.wq = nn.Linear(emb_dim, n_head * dk).to(device)
-        self.wk = nn.Linear(emb_dim, n_head * dk).to(device)
-        self.wv = nn.Linear(emb_dim, n_head * dv).to(device)
+        self.wq = nn.Linear(emb_dim, n_head * dk)
+        self.wk = nn.Linear(emb_dim, n_head * dk)
+        self.wv = nn.Linear(emb_dim, n_head * dv)
 
-        self.wo = nn.Linear(n_head * dv, emb_dim).to(device)
+        self.wo = nn.Linear(n_head * dv, emb_dim)
 
     def forward(self, x_emb: torch.tensor):
         batch_size, seq_len, emb_dim = x_emb.shape
@@ -107,11 +70,11 @@ class MaskedMultiHeadAttention(nn.Module):
         self.dk = dk
         self.dv = dv
 
-        self.wq = nn.Linear(emb_dim, n_head * dk).to(device)
-        self.wk = nn.Linear(emb_dim, n_head * dk).to(device)
-        self.wv = nn.Linear(emb_dim, n_head * dv).to(device)
+        self.wq = nn.Linear(emb_dim, n_head * dk)
+        self.wk = nn.Linear(emb_dim, n_head * dk)
+        self.wv = nn.Linear(emb_dim, n_head * dv)
 
-        self.wo = nn.Linear(n_head * dv, emb_dim).to(device)
+        self.wo = nn.Linear(n_head * dv, emb_dim)
 
     def forward(self, x_emb: torch.tensor):
         batch_size, seq_len, emb_dim = x_emb.shape
@@ -124,9 +87,10 @@ class MaskedMultiHeadAttention(nn.Module):
         K = K.permute(0, 2, 1, 3)
         V = V.permute(0, 2, 1, 3)
 
-        mask = torch.tril(torch.ones((seq_len, seq_len))).to(device)
+        mask = torch.tril(torch.ones((seq_len, seq_len)))
 
         attn_scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.dk)  # (batch_size, n_head, seq_len, seq_len)
+        mask = mask.to(attn_scores.device)
         attn_scores = attn_scores.masked_fill(mask == 0, -torch.inf)
         attn_weights = torch.softmax(attn_scores, dim=-1)
         attn_output = torch.matmul(attn_weights, V)  # (batch_size, n_head, seq_len, dv)
@@ -220,42 +184,3 @@ class GPT(nn.Module):
             return loss, logits
 
         return logits
-
-
-if __name__ == "__main__":
-    test_text = "Hello I am a test sentence."
-    gpt_dataset = GPTDataset(test_text, 4)
-    dataloader = DataLoader(gpt_dataset, batch_size=2)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    vocab_size = len(gpt_dataset.word2idx)
-    num_layers = 2
-    seq_len = 4
-    emb_dim = 64
-    n_head = 3
-    epochs = 100
-    learning_rate = 0.0001
-
-    model = GPT(num_layers, vocab_size, seq_len, emb_dim, n_head).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-    model.train()
-    for epoch in range(epochs):
-        epoch_loss = 0
-        for X, y in dataloader:
-            X, y = X.to(device), y.to(device)
-
-            loss, logits = model(X, y)
-
-            # Backward pass
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            # Metrics
-            epoch_loss += loss.item() * X.size(0)
-        print("Epoch: {}, Loss: {}".format(epoch, epoch_loss))
-
-    # out = gpt(test_X.to(device))
-    # print(out.size())
