@@ -3,94 +3,58 @@ import numpy as np
 import math
 import torch
 import torch.nn as nn
-from torch.nn import CrossEntropyLoss
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer, AutoModel
-from tqdm import tqdm
-from sklearn.metrics import classification_report
 import nltk
 import matplotlib.pyplot as plt
 import pandas as pd
-
-
-class GPTDataset(Dataset):
-    def __init__(self, raw_text, seq_len):
-        super(GPTDataset, self).__init__()
-        self.tokens = nltk.word_tokenize(raw_text.lower())
-
-        self.word2idx = self._build_word_2_index()
-        self.idx2word = {v: k for k, v in self.word2idx.items()}
-
-        self.seq_len = seq_len
-        self.X, self.y = self._build_sequences()
-
-    def _build_word_2_index(self):
-        word_2_index = {"<PAD>": 0, "<UNK>": 1}
-        for token in self.tokens:
-            word_2_index[token] = word_2_index.get(token, len(word_2_index))
-
-        return word_2_index
-
-    def _build_sequences(self):
-        X, y = [], []
-        if self.seq_len >= len(self.tokens):
-            seq = self.tokens[:] + ["<PAD>"] * (self.seq_len - len(self.tokens))
-            print(seq)
-
-        else:
-            for i in range(len(self.tokens) - self.seq_len):
-                seq = self.tokens[i:i + self.seq_len + 1]
-
-                x_tokens = seq[:-1]
-                y_tokens = seq[1:]
-    
-                X.append([self.word2idx[t] for t in x_tokens])
-                y.append([self.word2idx[t] for t in y_tokens])
-
-        return torch.tensor(X), torch.tensor(y)
-
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
-
-    def __len__(self):
-        return len(self.X)
+from config import Config
+from dataset import GPTDataset
+import json
 
 
 if __name__ == "__main__":
-    test_text = "Hello I am a test sentence."
-    gpt_dataset = GPTDataset(test_text, 10)
-    # dataloader = DataLoader(gpt_dataset, batch_size=2)
-    #
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #
-    # vocab_size = len(gpt_dataset.word2idx)
-    # num_layers = 2
-    # seq_len = 4
-    # emb_dim = 64
-    # n_head = 3
-    # epochs = 100
-    # learning_rate = 0.0001
-    #
-    # model = GPT(num_layers, vocab_size, seq_len, emb_dim, n_head).to(device)
-    # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    #
-    # for epoch in range(epochs):
-    #     epoch_loss = 0
-    #     model.train()
-    #     for X, y in dataloader:
-    #         X, y = X.to(device), y.to(device)
-    #
-    #         loss, logits = model(X, y)  # logits : (batch_size, seq_len, vocab_size)
-    #
-    #         # Backward pass
-    #         optimizer.zero_grad()
-    #         loss.backward()
-    #         optimizer.step()
-    #
-    #         # Metrics
-    #         epoch_loss += loss.item() * X.size(0)
-    #     print("Epoch: {}, Loss: {}".format(epoch, epoch_loss))
-    #
-    # torch.save(model.state_dict(), "./gpt_weights.pth")
-    # out = gpt(test_X.to(device))
-    # print(out.size())
+    with open("./test_data.txt", "r", encoding="utf-8") as f:
+        test_text = f.read()
+
+    cfg = Config
+    gpt_dataset = GPTDataset(test_text, cfg.seq_len)
+    with open("./word2idx.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(gpt_dataset.word2idx))
+
+    dataloader = DataLoader(gpt_dataset, batch_size=cfg.batch_size)
+
+    vocab_size = len(gpt_dataset.word2idx)
+
+    model = GPT(cfg.num_layers, vocab_size, cfg.seq_len, cfg.emb_dim, cfg.n_head).to(cfg.device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.learning_rate)
+
+    for epoch in range(cfg.epochs):
+        epoch_loss = 0
+        num_step = 0
+        model.train()
+        for X, y in dataloader:
+            X, y = X.to(cfg.device), y.to(cfg.device)
+
+            step_loss, logits = model(X, y)  # logits : (batch_size, seq_len, vocab_size)
+
+            # Backward pass
+            optimizer.zero_grad()
+            step_loss.backward()
+            optimizer.step()
+
+            print(f"Epoch: {epoch+1}, Step: {num_step}/{len(dataloader)}, Step loss: {step_loss:.4f}")
+
+            # Metrics
+            epoch_loss += step_loss.item()
+            num_step += 1
+        print(f"Epoch: {epoch+1}, Loss: {epoch_loss / len(dataloader):.4f}")
+        print("-----------------------------------")
+
+    torch.save(model.state_dict(), "./gpt_weights.pth")
+
+    # test_X = gpt_dataset[0][0].unsqueeze(0).to(cfg.device)  # (1, T, V)
+    # logits = model(test_X)  # (1, T, V)
+    # next_token_logits = logits[:, -1, :]  # (1, V)
+    # next_token = torch.argmax(next_token_logits, dim=-1)  # (1,)
+    # print(next_token)
+
