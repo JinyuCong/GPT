@@ -1,3 +1,6 @@
+import os
+import time
+
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -11,7 +14,7 @@ import json
 @torch.no_grad()
 def generate(
         model, input_ids, max_new_tokens, device,
-        tempreture=0.7, top_k=50
+        block_size, temperature=0.7, top_k=50
 ):
     model.eval()
 
@@ -21,11 +24,11 @@ def generate(
     input_ids = input_ids.to(device)
 
     for _ in range(max_new_tokens):
-        x = input_ids.unsqueeze(0)
+        x = input_ids[-block_size:].unsqueeze(0)
         logits = model(x)
         next_token_logits = logits[:, -1, :]  # (1, V)
 
-        next_token_logits = next_token_logits / max(tempreture, 1e-8)
+        next_token_logits = next_token_logits / max(temperature, 1e-8)
 
         if top_k is not None and top_k > 0:
             # 挑出前k个最高概率的token
@@ -39,6 +42,9 @@ def generate(
         next_token = torch.multinomial(probs, num_samples=1).squeeze(1)
 
         input_ids = torch.concat([input_ids, next_token], dim=0)
+        decoded = decode(input_ids, idx2word)
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print(decoded)
 
     return input_ids
 
@@ -59,14 +65,19 @@ if __name__ == '__main__':
     vocab_size = len(word2idx)
 
     model = GPT(cfg.num_layers, vocab_size, cfg.seq_len, cfg.emb_dim, cfg.n_head).to(cfg.device)
-    model.load_state_dict(torch.load('./gpt_weights.pth'))
+    model.load_state_dict(torch.load('./gpt_weights.pth', weights_only=True))
 
-    test = "It feels like they replaced me with insects"
+    test = "because features"
     tokens = nltk.word_tokenize(test.lower())
     tokens_ids = [word2idx[t] for t in tokens]
 
-    generated = generate(model, tokens_ids, 10, cfg.device,
-                                tempreture=cfg.tempreture, top_k=cfg.top_k)
+    generated = generate(
+        model=model,
+        input_ids=tokens_ids,
+        max_new_tokens=100,
+        device=cfg.device,
+        block_size=cfg.seq_len,
+        temperature=cfg.temperature,
+        top_k=cfg.top_k
+    )
 
-    out = decode(generated, idx2word)
-    print(out)

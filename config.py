@@ -12,5 +12,5 @@ class Config:
     n_head = 3
     epochs = 100
     learning_rate = 1e-4
-    tempreture = 0
+    temperature = 1
     top_k = 100

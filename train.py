@@ -42,12 +42,12 @@ if __name__ == "__main__":
             step_loss.backward()
             optimizer.step()
 
-            print(f"Epoch: {epoch+1}, Step: {num_step}/{len(dataloader)}, Step loss: {step_loss:.4f}")
+            print(f"Epoch: {epoch+1}/{cfg.epochs}, Step: {num_step}/{len(dataloader)}, Step loss: {step_loss:.4f}")
 
             # Metrics
             epoch_loss += step_loss.item()
             num_step += 1
-        print(f"Epoch: {epoch+1}, Loss: {epoch_loss / len(dataloader):.4f}")
+        print(f"Epoch: {epoch+1}/{cfg.epochs}, Loss: {epoch_loss / len(dataloader):.4f}")
         print("-----------------------------------")
 
     torch.save(model.state_dict(), "./gpt_weights.pth")
