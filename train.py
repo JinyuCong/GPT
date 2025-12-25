@@ -13,13 +13,11 @@ import json
 
 
 if __name__ == "__main__":
-    with open("./test_data.txt", "r", encoding="utf-8") as f:
+    with open("./Alan_Turing_corpus.txt", "r", encoding="utf-8") as f:
         test_text = f.read()
 
     cfg = Config
     gpt_dataset = GPTDataset(test_text, cfg.seq_len)
-    with open("./word2idx.json", "w", encoding="utf-8") as f:
-        f.write(json.dumps(gpt_dataset.word2idx))
 
     dataloader = DataLoader(gpt_dataset, batch_size=cfg.batch_size)
 

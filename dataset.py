@@ -1,14 +1,17 @@
 from torch.utils.data import Dataset, DataLoader
 import nltk
+from tokenizer import BPETokenizer
 import torch
 
 
 class GPTDataset(Dataset):
     def __init__(self, raw_text, seq_len):
         super(GPTDataset, self).__init__()
-        self.tokens = nltk.word_tokenize(raw_text.lower())
+        self.tokenizer = BPETokenizer()
+        self.tokenizer.from_pretrained("./logs.json")
+        self.tokens = self.tokenizer.tokenize(raw_text, return_tokens=False)
 
-        self.word2idx = self._build_word_2_index()
+        self.word2idx = self.tokenizer.word2idx
         self.idx2word = {v: k for k, v in self.word2idx.items()}
 
         self.vocab_size = len(self.word2idx)
@@ -20,13 +23,6 @@ class GPTDataset(Dataset):
 
     def __len__(self):
         return len(self.X)
-
-    def _build_word_2_index(self):
-        word_2_index = {"<PAD>": 0, "<UNK>": 1}
-        for token in self.tokens:
-            word_2_index[token] = word_2_index.get(token, len(word_2_index))
-
-        return word_2_index
 
     def _build_sequences(self):
         X, y = [], []
@@ -44,7 +40,7 @@ class GPTDataset(Dataset):
                 x_tokens = seq[:-1]
                 y_tokens = seq[1:]
 
-                X.append([self.word2idx[t] for t in x_tokens])
-                y.append([self.word2idx[t] for t in y_tokens])
+                X.append(x_tokens)
+                y.append(y_tokens)
 
         return torch.tensor(X), torch.tensor(y)
