@@ -33,7 +33,7 @@ class BPETokenizer:
 
         return tokens
 
-    def tokenize(self, text, return_tokens=True):
+    def tokenize(self, text, return_tokens=False):
         pieces = re.findall(r"\w+|[^\w\s]", text)
         output_tokens = []
 
@@ -46,9 +46,9 @@ class BPETokenizer:
 
         token_ids = [self.word2idx.get(t, self.word2idx['<UNK>']) for t in output_tokens]
         if return_tokens:
-            return torch.tensor(token_ids), output_tokens
+            return token_ids, output_tokens
         else:
-            return torch.tensor(token_ids)
+            return token_ids
 
     def train(self, train_text: str, max_concat_num: int):
         # 将训练数据拆分成char

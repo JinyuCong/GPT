@@ -1,4 +1,5 @@
 import os
+import re
 import time
 
 import torch
@@ -7,6 +8,7 @@ import torch.nn as nn
 from layers import GPT
 from config import Config
 from dataset import GPTDataset
+from  tokenizer import BPETokenizer
 import nltk
 import json
 
@@ -54,22 +56,23 @@ def decode(input_ids: torch.tensor, idx2word: dict) -> str:
 
 
 if __name__ == '__main__':
-    with open("./test_data.txt", "r", encoding="utf-8") as f:
-        test_text = f.read()
-
     cfg = Config
 
-    with open("./word2idx.json", "r", encoding="utf-8") as f:
-        word2idx = json.load(f)
-    idx2word = {idx: word for word, idx in word2idx.items()}
+    with open("./logs.json", "r", encoding="utf-8") as f:
+        logs = json.load(f)
+
+    tokenizer = BPETokenizer(save_logs=False)
+    tokenizer.from_pretrained("./logs.json")
+
+    word2idx = tokenizer.word2idx
+    idx2word = {idx: re.sub("</w>", "", word) for word, idx in word2idx.items()}
     vocab_size = len(word2idx)
 
     model = GPT(cfg.num_layers, vocab_size, cfg.seq_len, cfg.emb_dim, cfg.n_head).to(cfg.device)
     model.load_state_dict(torch.load('./gpt_weights.pth', weights_only=True))
 
-    test = "because features"
-    tokens = nltk.word_tokenize(test.lower())
-    tokens_ids = [word2idx[t] for t in tokens]
+    test = "Born in London"
+    tokens_ids = tokenizer.tokenize(test)
 
     generated = generate(
         model=model,

@@ -10,7 +10,7 @@ class Config:
     emb_dim = 256
     num_layers = 12
     n_head = 3
-    epochs = 100
+    epochs = 30
     learning_rate = 1e-4
-    temperature = 1
-    top_k = 100
+    temperature = 1.5
+    top_k = 1000
