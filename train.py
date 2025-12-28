@@ -1,15 +1,9 @@
 from layers import GPT
-import numpy as np
-import math
 import torch
-import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-import nltk
-import matplotlib.pyplot as plt
-import pandas as pd
-from config import Config
+from config import Config as cfg
 from dataset import GPTDataset
-import json
+from transformers import AutoTokenizer
 
 
 class EarlyStopping:
@@ -38,22 +32,19 @@ class EarlyStopping:
 
 
 if __name__ == "__main__":
-    with open("./Alan_Turing_corpus.txt", "r", encoding="utf-8") as f:
-        test_text = f.read()
+    tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer_name)
 
-    cfg = Config
-
-    gpt_dataset = GPTDataset(test_text, cfg.seq_len)
-
+    gpt_dataset = GPTDataset(cfg.dataset_name, cfg.seq_len)
     dataloader = DataLoader(gpt_dataset, batch_size=cfg.batch_size)
-
     num_steps = len(dataloader)
+    print(f"INFO: Dataloader initialized successfully. Number of training steps: {num_steps}")
 
-    vocab_size = len(gpt_dataset.word2idx)
+    vocab_size = tokenizer.vocab_size
 
     model = GPT(cfg.num_layers, vocab_size, cfg.seq_len, cfg.emb_dim, cfg.n_head).to(cfg.device)
+    print(f"INFO: Model initialized successfully")
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.learning_rate)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate)
 
     early_stopping = EarlyStopping(model)
 

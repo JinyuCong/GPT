@@ -1,15 +1,13 @@
 import os
 import re
-import time
 
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from layers import GPT
-from config import Config
+from config import Config as cfg
 from dataset import GPTDataset
-from  tokenizer import BPETokenizer
-import nltk
+from tokenizer import BPETokenizer
 import json
 
 
@@ -56,7 +54,6 @@ def decode(input_ids: torch.tensor, idx2word: dict) -> str:
 
 
 if __name__ == '__main__':
-    cfg = Config
 
     with open("./logs.json", "r", encoding="utf-8") as f:
         logs = json.load(f)
@@ -71,16 +68,19 @@ if __name__ == '__main__':
     model = GPT(cfg.num_layers, vocab_size, cfg.seq_len, cfg.emb_dim, cfg.n_head).to(cfg.device)
     model.load_state_dict(torch.load('./gpt_weights.pth', weights_only=True))
 
-    test = "Born in London"
+    test = "turing was raised"
     tokens_ids = tokenizer.tokenize(test)
 
-    generated = generate(
+    generate_ids = generate(
         model=model,
         input_ids=tokens_ids,
-        max_new_tokens=100,
+        max_new_tokens=cfg.max_new_tokens,
         device=cfg.device,
         block_size=cfg.seq_len,
         temperature=cfg.temperature,
         top_k=cfg.top_k
     )
+
+    # decoded = decode(generate_ids, idx2word)
+    # print(decoded)
 

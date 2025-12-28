@@ -1,12 +1,12 @@
 import json
 import re
 from collections import Counter
-import torch
+from config import Config as cfg
+from datasets import load_dataset
 
 
 class BPETokenizer:
-    def __init__(self, save_logs=True):
-        self.save_logs = save_logs
+    def __init__(self):
         self.merges = []
         self.word2idx = {'<PAD>': 0, '<UNK>': 1, '<EOS>': 2}
 
@@ -33,8 +33,8 @@ class BPETokenizer:
 
         return tokens
 
-    def tokenize(self, text, return_tokens=False):
-        pieces = re.findall(r"\w+|[^\w\s]", text)
+    def tokenize(self, text: str, return_tokens=False):
+        pieces = re.findall(r"\w+|[^\w\s]", text.lower())
         output_tokens = []
 
         for p in pieces:
@@ -50,9 +50,9 @@ class BPETokenizer:
         else:
             return token_ids
 
-    def train(self, train_text: str, max_concat_num: int):
+    def train(self, train_text: str, max_concat_num: int, save_logs=True):
         # 将训练数据拆分成char
-        pieces = re.findall(r"\w+|[^\w\s]", train_text)
+        pieces = re.findall(r"\w+|[^\w\s]", train_text.lower())
 
         # 统计词频
         word_freq = Counter(pieces)
@@ -112,7 +112,7 @@ class BPETokenizer:
             "merges": self.merges,
         }
 
-        if self.save_logs:
+        if save_logs:
             with open('logs.json', "w", encoding="utf-8") as f:
                 json.dump(logs, f)
 
@@ -131,8 +131,6 @@ if __name__ == '__main__':
     with open("./Alan_Turing_corpus.txt", "r", encoding="utf-8") as f:
         train_text = f.read()
 
-    max_concat_num = 3000
     tokenizer = BPETokenizer()
-    tokenizer.train(train_text, max_concat_num)
-
+    tokenizer.train(train_text, cfg.max_concat_num, save_logs=True)
 
