@@ -34,12 +34,13 @@ class EarlyStopping:
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer_name)
 
+    vocab = tokenizer.vocab
+    vocab_size = max(vocab.items(), key=lambda x: x[1])[1] + 1
+
     gpt_dataset = GPTDataset(cfg.dataset_name, cfg.seq_len)
     dataloader = DataLoader(gpt_dataset, batch_size=cfg.batch_size)
     num_steps = len(dataloader)
     print(f"INFO: Dataloader initialized successfully. Number of training steps: {num_steps}")
-
-    vocab_size = tokenizer.vocab_size
 
     model = GPT(cfg.num_layers, vocab_size, cfg.seq_len, cfg.emb_dim, cfg.n_head).to(cfg.device)
     print(f"INFO: Model initialized successfully")
