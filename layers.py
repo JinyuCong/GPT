@@ -3,6 +3,27 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
+class RoPE(nn.Module):
+    def __init__(self, seq_len, emb_dim):
+        super().__init__()
+        freqs = 1.0 / (10000.0 ** (2 * torch.arange(0, emb_dim // 2).float() / emb_dim))
+        positions = torch.arange(0, seq_len, dtype=torch.float)
+        angles = positions.unsqueeze(1) * freqs.unsqueeze(0)  # (seq_len, emb_dim//2)
+        self.register_buffer('cos', torch.cos(angles))  # (seq_len, emb_dim//2)
+        self.register_buffer('sin', torch.sin(angles))
+
+    def forward(self, x):
+        # x: (batch, seq_len, emb_dim)
+        x_even = x[..., 0::2]  # (batch, seq_len, emb_dim//2)
+        x_odd  = x[..., 1::2]
+
+        x_rot_even = x_even * self.cos - x_odd * self.sin
+        x_rot_odd  = x_even * self.sin + x_odd * self.cos
+
+        # 交错合并回去
+        x_rot = torch.stack((x_rot_even, x_rot_odd), dim=-1)
+        return x_rot.flatten(-2)  # (batch, seq_len, emb_dim)
+
 
 class PositionalEncoding(nn.Module):
     def __init__(self, seq_len, emb_dim):
